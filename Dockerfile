@@ -41,6 +41,10 @@ RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local
 
 RUN docker-php-ext-install zip iconv simplexml pcntl gd fileinfo
 
+RUN apt install nginx -y
+RUN apt install nodejs -y
+RUN apt install npm -y
+
 #COPY php.ini-production /usr/local/etc/php/php.ini
 RUN cp /usr/local/etc/php/php.ini-production /usr/local/etc/php/php.ini
 
@@ -59,7 +63,6 @@ RUN touch /var/www/database/database.sqlite
 RUN cd /var/www && chown -R www-data:www-data database/database.sqlite
 
 RUN composer run setup:prod
-RUN apt install nginx -y
 
 # carragar configuração padrão do NGINX
 COPY ./docker/nginx/nginx.conf /etc/nginx/nginx.conf
