@@ -55,6 +55,8 @@ COPY . .
 RUN cd /var/www && chmod -R 755 *
 RUN cd /var/www && chown -R www-data:www-data *
 
+RUN touch /var/www/database/database.sqlite
+
 RUN composer install --no-interaction --prefer-dist --optimize-autoloader
 
 RUN apt install nginx -y
