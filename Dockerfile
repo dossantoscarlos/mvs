@@ -6,7 +6,7 @@ FROM php:${PHP_VERSION}
 ## Diretório da aplicação
 ARG APP_DIR=/var/www
 ## Versão da Lib do Redis para PHP
-ARG REDIS_LIB_VERSION=5.3.7
+ENV REDIS_LIB_VERSION=6.2.0
 
 RUN apt-get update
 RUN apt-get install -y --no-install-recommends \
