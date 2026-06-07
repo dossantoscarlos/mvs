@@ -66,6 +66,8 @@ COPY ./docker/nginx/nginx.conf /etc/nginx/nginx.conf
 # se for necessário criar os sites disponíveis já na confecção da imagem, então descomente a linha abaixo
 COPY ./docker/nginx/sites /etc/nginx/sites-available
 
+RUN php artisan migrate --seed --force
+
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 
 EXPOSE 10000
