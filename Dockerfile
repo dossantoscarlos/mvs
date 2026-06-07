@@ -58,7 +58,7 @@ RUN cd /var/www && chown -R www-data:www-data *
 RUN touch /var/www/database/database.sqlite
 RUN cd /var/www && chown -R www-data:www-data database/database.sqlite
 
-RUN composer setup:prod
+RUN composer run setup:prod
 RUN apt install nginx -y
 
 # carragar configuração padrão do NGINX
