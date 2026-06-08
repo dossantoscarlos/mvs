@@ -62,12 +62,13 @@ RUN cd /var/www && chown -R www-data:www-data *
 RUN touch /var/www/database/database.sqlite
 RUN cd /var/www && chown -R www-data:www-data database/database.sqlite
 
-RUN composer run setup:prod
 
 # carragar configuração padrão do NGINX
 COPY ./docker/nginx/nginx.conf /etc/nginx/nginx.conf
 # se for necessário criar os sites disponíveis já na confecção da imagem, então descomente a linha abaixo
 COPY ./docker/nginx/sites /etc/nginx/sites-available
+
+RUN php artisan migrate --seed
 
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 
