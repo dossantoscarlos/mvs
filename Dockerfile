@@ -1,5 +1,5 @@
 # ============================================================
-# Imagem Base
+# PHP
 # ============================================================
 ARG PHP_VERSION=8.4-fpm
 FROM php:${PHP_VERSION}
@@ -14,11 +14,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     apt-utils \
     supervisor \
     nginx \
+    curl \
+    git \
+    unzip \
+    zip \
     nodejs \
     npm \
-    curl \
-    unzip \
-    git \
     zlib1g-dev \
     libzip-dev \
     libpng-dev \
@@ -26,12 +27,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxml2-dev \
     libicu-dev \
     && rm -rf /var/lib/apt/lists/*
-
-# ============================================================
-# Supervisor
-# ============================================================
-COPY ./docker/supervisord/supervisord.conf /etc/supervisor/
-COPY ./docker/supervisord/conf /etc/supervisor/conf.d/
 
 # ============================================================
 # Extensões PHP
@@ -42,18 +37,14 @@ RUN docker-php-ext-install \
     pdo_mysql \
     pdo_pgsql \
     pgsql \
-    session \
-    xml \
     intl \
+    xml \
     bcmath \
     zip \
-    iconv \
-    simplexml \
-    pcntl \
     gd \
-    fileinfo
+    pcntl \
+    opcache
 
-# Redis
 RUN pecl install redis-${REDIS_LIB_VERSION} \
     && docker-php-ext-enable redis
 
@@ -63,38 +54,67 @@ RUN pecl install redis-${REDIS_LIB_VERSION} \
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 # ============================================================
-# PHP
+# PHP.ini
 # ============================================================
 RUN cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 
 # ============================================================
-# Diretório da aplicação
+# Supervisor
+# ============================================================
+COPY docker/supervisord/supervisord.conf /etc/supervisor/supervisord.conf
+COPY docker/supervisord/conf/ /etc/supervisor/conf.d/
+
+# ============================================================
+# Nginx
+# ============================================================
+COPY docker/nginx/nginx.conf /etc/nginx/nginx.conf
+COPY docker/nginx/sites/ /etc/nginx/sites-available/
+
+# ============================================================
+# Aplicação
 # ============================================================
 WORKDIR ${APP_DIR}
 
 COPY . .
 
 # ============================================================
-# Instala dependências Laravel
+# Composer
 # ============================================================
 RUN composer install \
     --no-dev \
     --prefer-dist \
-    --no-interaction \
-    --optimize-autoloader
+    --optimize-autoloader \
+    --no-interaction
+
+# ============================================================
+# Frontend (Vite)
+# ============================================================
+RUN npm install
+
+RUN npm run build
+
+# ============================================================
+# Diretórios Laravel
+# ============================================================
+RUN mkdir -p \
+    storage/logs \
+    storage/framework/cache/data \
+    storage/framework/sessions \
+    storage/framework/testing \
+    storage/framework/views \
+    bootstrap/cache
+
+RUN touch storage/logs/laravel.log
+
+RUN touch database/database.sqlite
 
 # ============================================================
 # Permissões
 # ============================================================
-RUN mkdir -p storage/framework/cache/data \
-    storage/framework/sessions \
-    storage/framework/views \
-    storage/logs \
-    bootstrap/cache
-
-RUN touch database/database.sqlite
-
-RUN chown -R www-data:www-data ${APP_DIR}
+RUN chown -R www-data:www-data \
+    storage \
+    bootstrap/cache \
+    database
 
 RUN chmod -R 775 \
     storage \
@@ -102,15 +122,14 @@ RUN chmod -R 775 \
     database
 
 # ============================================================
-# Nginx
+# Cache Laravel
 # ============================================================
-COPY ./docker/nginx/nginx.conf /etc/nginx/nginx.conf
-COPY ./docker/nginx/sites /etc/nginx/sites-available
+RUN php artisan optimize:clear || true
 
 # ============================================================
 # Entrypoint
 # ============================================================
-COPY ./docker/entrypoint.sh /entrypoint.sh
+COPY docker/entrypoint.sh /entrypoint.sh
 
 RUN chmod +x /entrypoint.sh
 
