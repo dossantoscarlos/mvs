@@ -1,77 +1,119 @@
-# Argumentos da Imagem
-## Versão da Imagem Docker PHP
+# ============================================================
+# Imagem Base
+# ============================================================
 ARG PHP_VERSION=8.4-fpm
 FROM php:${PHP_VERSION}
 
-## Diretório da aplicação
 ARG APP_DIR=/var/www
-## Versão da Lib do Redis para PHP
 ENV REDIS_LIB_VERSION=6.2.0
 
-RUN apt-get update
-RUN apt-get install -y --no-install-recommends \
-    apt-utils
-### apt-utils é um extensão de recursos do gerenciador de pacotes APT
-
-RUN apt-get install -y --no-install-recommends supervisor
-COPY ./docker/supervisord/supervisord.conf /etc/supervisor
-COPY ./docker/supervisord/conf /etc/supervisord.d/
-### Supervisor permite monitorar e controlar vários processos (LINUX)
-### Bastante utilizado para manter processos em Daemon, ou seja, executando em segundo plano
-
-# dependências recomendadas de desenvolvido para ambiente linux
-RUN apt-get update && apt-get install -y \
+# ============================================================
+# Dependências do Sistema
+# ============================================================
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    apt-utils \
+    supervisor \
+    nginx \
+    nodejs \
+    npm \
+    curl \
+    unzip \
+    git \
     zlib1g-dev \
     libzip-dev \
-    unzip \
     libpng-dev \
     libpq-dev \
     libxml2-dev \
-    libicu-dev
+    libicu-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN docker-php-ext-install mysqli pdo pdo_mysql pdo_pgsql pgsql session xml intl bcmath
+# ============================================================
+# Supervisor
+# ============================================================
+COPY ./docker/supervisord/supervisord.conf /etc/supervisor/
+COPY ./docker/supervisord/conf /etc/supervisor/conf.d/
 
-# habilita instalação do Redis
+# ============================================================
+# Extensões PHP
+# ============================================================
+RUN docker-php-ext-install \
+    mysqli \
+    pdo \
+    pdo_mysql \
+    pdo_pgsql \
+    pgsql \
+    session \
+    xml \
+    intl \
+    bcmath \
+    zip \
+    iconv \
+    simplexml \
+    pcntl \
+    gd \
+    fileinfo
+
+# Redis
 RUN pecl install redis-${REDIS_LIB_VERSION} \
     && docker-php-ext-enable redis
 
+# ============================================================
 # Composer
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+# ============================================================
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
+# ============================================================
+# PHP
+# ============================================================
+RUN cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 
-RUN docker-php-ext-install zip iconv simplexml pcntl gd fileinfo
+# ============================================================
+# Diretório da aplicação
+# ============================================================
+WORKDIR ${APP_DIR}
 
-RUN apt install nginx -y
-RUN apt install nodejs -y
-RUN apt install npm -y
-
-#COPY php.ini-production /usr/local/etc/php/php.ini
-RUN cp /usr/local/etc/php/php.ini-production /usr/local/etc/php/php.ini
-
-# Definir o diretório de trabalho
-WORKDIR /var/www
-
-RUN cd /var/www
-# Copiar os arquivos da aplicação para o diretório de trabalho
 COPY . .
 
-# Ajustar permissões
-RUN cd /var/www && chmod -R 755 *
-RUN cd /var/www && chown -R www-data:www-data *
+# ============================================================
+# Instala dependências Laravel
+# ============================================================
+RUN composer install \
+    --no-dev \
+    --prefer-dist \
+    --no-interaction \
+    --optimize-autoloader
 
-RUN touch /var/www/database/database.sqlite
-RUN cd /var/www && chown -R www-data:www-data database/database.sqlite
+# ============================================================
+# Permissões
+# ============================================================
+RUN mkdir -p storage/framework/cache/data \
+    storage/framework/sessions \
+    storage/framework/views \
+    storage/logs \
+    bootstrap/cache
 
+RUN touch database/database.sqlite
 
-# carragar configuração padrão do NGINX
+RUN chown -R www-data:www-data ${APP_DIR}
+
+RUN chmod -R 775 \
+    storage \
+    bootstrap/cache \
+    database
+
+# ============================================================
+# Nginx
+# ============================================================
 COPY ./docker/nginx/nginx.conf /etc/nginx/nginx.conf
-# se for necessário criar os sites disponíveis já na confecção da imagem, então descomente a linha abaixo
 COPY ./docker/nginx/sites /etc/nginx/sites-available
-RUN composer install --no-interaction --prefer-dist --optimize-autoloader
-#RUN php artisan migrate --seed
 
-RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+# ============================================================
+# Entrypoint
+# ============================================================
+COPY ./docker/entrypoint.sh /entrypoint.sh
+
+RUN chmod +x /entrypoint.sh
 
 EXPOSE 10000
 
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]
+ENTRYPOINT ["/entrypoint.sh"]
