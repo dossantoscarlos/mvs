@@ -67,7 +67,7 @@ RUN cd /var/www && chown -R www-data:www-data database/database.sqlite
 COPY ./docker/nginx/nginx.conf /etc/nginx/nginx.conf
 # se for necessário criar os sites disponíveis já na confecção da imagem, então descomente a linha abaixo
 COPY ./docker/nginx/sites /etc/nginx/sites-available
-
+RUN composer install --no-interaction --prefer-dist --optimize-autoloader
 RUN php artisan migrate --seed
 
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
