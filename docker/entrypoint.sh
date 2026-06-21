@@ -2,34 +2,19 @@
 
 set -e
 
-echo "Iniciando aplicação..."
+echo "Corrigindo permissões..."
 
-# Aguarda banco caso exista configuração
-if [ ! -z "$DB_HOST" ]; then
-    echo "Aguardando banco..."
+chown -R www-data:www-data /var/www/storage
+chown -R www-data:www-data /var/www/bootstrap/cache
 
-    until php -r "
-    try {
-        new PDO(
-            'mysql:host=' . getenv('DB_HOST') .
-            ';port=' . getenv('DB_PORT'),
-            getenv('DB_USERNAME'),
-            getenv('DB_PASSWORD')
-        );
-        exit(0);
-    } catch (Exception \$e) {
-        exit(1);
-    }"
-    do
-        sleep 2
-    done
-fi
+chmod -R 775 /var/www/storage
+chmod -R 775 /var/www/bootstrap/cache
 
-echo "Limpando caches..."
+echo "Limpando cache..."
 
 php artisan optimize:clear || true
 
-echo "Gerando caches..."
+echo "Gerando cache..."
 
 php artisan config:cache || true
 php artisan route:cache || true
